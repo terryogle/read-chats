@@ -1,0 +1,6 @@
+{
+  "name": "Gorgias AI Chat Admin",
+  "description": "Clean two-window admin panel for managing AI chat conversations from Gorgias, forwarding to customer support, and submitting AI Knowledge Base improvements.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

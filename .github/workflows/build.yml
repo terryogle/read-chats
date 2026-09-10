@@ -1,0 +1,42 @@
+name: Build and Deploy Dist
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Commit and push dist build
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -f dist/
+          if git diff --staged --quiet; then
+            echo "No changes to commit in dist/"
+          else
+            git commit -m "Auto-build: update dist [skip ci]"
+            git push origin ${{ github.ref_name }}
+          fi

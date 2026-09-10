@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HealthyLine Support Chat • Панель руководителя</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Custom scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+  </style>
+</head>
+<body class="bg-zinc-100 text-zinc-900 font-sans antialiased h-screen w-screen overflow-hidden">
+
+  <!-- ================= AUTH GATE (ОКНО АВТОРИЗАЦИИ) ================= -->
+  <div id="auth-gate" class="fixed inset-0 z-50 bg-gradient-to-b from-zinc-50 via-zinc-100 to-zinc-200 flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+      <!-- Top Band -->
+      <div class="h-1.5 bg-gradient-to-r from-emerald-600 via-zinc-800 to-blue-600"></div>
+
+      <div class="p-7">
+        <!-- Logo & Title -->
+        <div class="flex flex-col items-center text-center mb-6">
+          <div class="h-12 px-3 py-1.5 rounded-xl bg-white border border-zinc-200 shadow-xs flex items-center justify-center mb-3.5">
+            <img
+              src="https://cdn.shopify.com/s/files/1/0639/6172/7028/files/HealthyLine_logo_909e00d5-5467-4ce1-9ba0-4fc038a1f537.png?v=1735050048"
+              alt="HealthyLine Logo"
+              class="h-6 w-auto object-contain"
+            />
+          </div>
+
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold mb-1.5">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Защищённая панель управления</span>
+          </div>
+
+          <h1 class="text-lg font-bold text-zinc-900 tracking-tight">
+            HealthyLine Support Admin
+          </h1>
+          <p class="text-xs text-zinc-500 mt-1 max-w-xs">
+            Просмотр диалогов и обращений клиентов в реальном времени
+          </p>
+        </div>
+
+        <!-- Error message alert -->
+        <div id="login-error" class="hidden mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 flex-shrink-0"></i>
+          <span id="login-error-text">Неверный логин или пароль</span>
+        </div>
+
+        <!-- Form -->
+        <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-zinc-700 mb-1.5">Логин руководителя</label>
+            <div class="relative">
+              <i data-lucide="user" class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input
+                id="login-username"
+                type="text"
+                required
+                placeholder="boss"
+                class="w-full pl-9 pr-3 py-2 bg-zinc-50 focus:bg-white text-xs text-zinc-900 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900/15 focus:border-zinc-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-zinc-700 mb-1.5">Пароль</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input
+                id="login-password"
+                type="password"
+                required
+                placeholder="••••••••••••"
+                class="w-full pl-9 pr-3 py-2 bg-zinc-50 focus:bg-white text-xs text-zinc-900 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900/15 focus:border-zinc-500 font-mono"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            id="login-btn"
+            class="w-full py-2.5 px-4 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+          >
+            <i data-lucide="key-round" class="w-3.5 h-3.5 text-zinc-300"></i>
+            <span>Войти в систему</span>
+          </button>
+        </form>
+
+        <div class="mt-4 pt-3.5 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-400">
+          <span>Шифрование сессии</span>
+          <span>TLS 256-bit</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN APPLICATION ================= -->
+  <div id="main-app" class="hidden flex-col h-screen w-screen overflow-hidden">
+    <!-- Header -->
+    <header class="h-11 bg-white border-b border-zinc-200 px-3.5 flex items-center justify-between flex-shrink-0 select-none z-10">
+      <div class="flex items-center gap-3">
+        <img
+          src="https://cdn.shopify.com/s/files/1/0639/6172/7028/files/HealthyLine_logo_909e00d5-5467-4ce1-9ba0-4fc038a1f537.png?v=1735050048"
+          alt="HealthyLine"
+          class="h-4.5 w-auto object-contain"
+        />
+        <span class="text-xs font-bold text-zinc-900 tracking-tight">Support Admin</span>
+        <span id="connection-status-badge" class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="connection-status-text">Подключено к Supabase</span>
+        </span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button
+          onclick="refreshConversations()"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg border border-zinc-200 cursor-pointer"
+          title="Обновить диалоги"
+        >
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-zinc-600"></i>
+          <span>Обновить</span>
+        </button>
+
+        <button
+          onclick="handleLogout()"
+          class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer"
+        >
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Выйти</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content: 2 Windows -->
+    <main class="flex-1 flex overflow-hidden w-full h-full">
+      <!-- Window 1: Conversation List -->
+      <section class="w-full md:w-[380px] lg:w-[420px] flex-shrink-0 h-full border-r border-zinc-200 bg-white flex flex-col">
+        <!-- Search & Filter Bar -->
+        <div class="p-3 border-b border-zinc-200 space-y-2 bg-zinc-50/50">
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input
+              id="search-input"
+              type="text"
+              oninput="handleSearch(this.value)"
+              placeholder="Поиск по имени, email, вопросу..."
+              class="w-full pl-9 pr-3 py-1.5 bg-white text-xs text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-900"
+            />
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-zinc-500 font-medium px-0.5">
+            <span id="conversations-counter">Загрузка диалогов...</span>
+            <span class="text-[10px] text-zinc-400">Live feed</span>
+          </div>
+        </div>
+
+        <!-- Conversations Scroll List -->
+        <div id="conversations-list" class="flex-1 overflow-y-auto divide-y divide-zinc-100">
+          <!-- Will be rendered dynamically -->
+        </div>
+      </section>
+
+      <!-- Window 2: Chat Window -->
+      <section id="chat-window" class="flex-1 h-full min-w-0 bg-zinc-50 flex flex-col">
+        <!-- Chat Header -->
+        <div id="chat-header" class="h-14 bg-white border-b border-zinc-200 px-4 flex items-center justify-between flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-zinc-900 text-white flex items-center justify-center font-bold text-xs" id="chat-user-avatar">
+              HL
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="chat-user-name" class="font-bold text-sm text-zinc-900">Выберите диалог</span>
+                <span id="chat-user-email" class="text-xs text-zinc-400 font-normal"></span>
+              </div>
+              <div class="text-[11px] text-zinc-500" id="chat-meta">
+                Диалоги клиентов HealthyLine
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+          <div class="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-400">
+            <i data-lucide="message-square" class="w-10 h-10 mb-2 opacity-40"></i>
+            <p class="text-xs">Выберите клиента из левого списка, чтобы прочитать переписку</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ================= CONFIGURATION (КЛЮЧИ И ПАРОЛИ) =================
+    // Вставьте сюда ваши учетные данные:
+    const CONFIG = {
+      ADMIN_USERNAME: 'boss',
+      ADMIN_PASSWORD: 'ApwhFz5XpQ9muL#',
+      SUPABASE_URL: 'https://zstggtwenndgtvgecwcn.supabase.co',
+      SUPABASE_KEY: 'ВАШ_SUPABASE_ANON_KEY' // Вставьте сюда ваш anon-ключ
+    };
+
+    let supabaseClient = null;
+    let allConversations = [];
+    let currentConversationId = null;
+
+    // Initialize Supabase if keys exist
+    if (CONFIG.SUPABASE_URL && CONFIG.SUPABASE_KEY && CONFIG.SUPABASE_KEY !== 'ВАШ_SUPABASE_ANON_KEY') {
+      try {
+        supabaseClient = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+      } catch (err) {
+        console.warn('Supabase init error:', err);
+      }
+    }
+
+    // Check existing session in sessionStorage
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      const savedAuth = sessionStorage.getItem('hl_auth');
+      if (savedAuth === 'authenticated') {
+        showApp();
+      }
+    });
+
+    // Login Handler
+    function handleLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById('login-username').value.trim();
+      const pass = document.getElementById('login-password').value.trim();
+      const errBox = document.getElementById('login-error');
+
+      if (user === CONFIG.ADMIN_USERNAME && pass === CONFIG.ADMIN_PASSWORD) {
+        sessionStorage.setItem('hl_auth', 'authenticated');
+        errBox.classList.add('hidden');
+        showApp();
+      } else {
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    function handleLogout() {
+      sessionStorage.removeItem('hl_auth');
+      document.getElementById('main-app').classList.add('hidden');
+      document.getElementById('main-app').classList.remove('flex');
+      document.getElementById('auth-gate').classList.remove('hidden');
+    }
+
+    function showApp() {
+      document.getElementById('auth-gate').classList.add('hidden');
+      document.getElementById('main-app').classList.remove('hidden');
+      document.getElementById('main-app').classList.add('flex');
+      lucide.createIcons();
+      loadConversations();
+    }
+
+    // Load Conversations from Supabase
+    async function loadConversations() {
+      const counter = document.getElementById('conversations-counter');
+      counter.innerText = 'Загрузка диалогов...';
+
+      if (!supabaseClient) {
+        // Fallback demo data
+        renderConversations(getDemoConversations());
+        counter.innerText = 'Диалоги (Демо режим)';
+        return;
+      }
+
+      try {
+        // Attempt fetch from conversations or chat_sessions
+        let { data, error } = await supabaseClient
+          .from('conversations')
+          .select('*')
+          .order('updated_at', { ascending: false });
+
+        if (error) {
+          const res = await supabaseClient
+            .from('chat_sessions')
+            .select('*')
+            .order('created_at', { ascending: false });
+          data = res.data;
+          error = res.error;
+        }
+
+        if (error || !data || data.length === 0) {
+          renderConversations(getDemoConversations());
+          counter.innerText = '0 диалогов в базе';
+        } else {
+          allConversations = data.map(normalizeConversation);
+          renderConversations(allConversations);
+          counter.innerText = `Всего: ${allConversations.length} диалогов`;
+          if (allConversations.length > 0) {
+            selectConversation(allConversations[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        renderConversations(getDemoConversations());
+      }
+    }
+
+    function normalizeConversation(c) {
+      return {
+        id: c.id || c.session_id,
+        user_name: c.user_name || c.customer_name || 'Посетитель сайта',
+        user_email: c.user_email || c.customer_email || 'email не указан',
+        last_message: c.last_message || c.preview || 'Нет сообщений',
+        updated_at: c.updated_at || c.created_at || new Date().toISOString()
+      };
+    }
+
+    function renderConversations(list) {
+      const container = document.getElementById('conversations-list');
+      if (!list || list.length === 0) {
+        container.innerHTML = '<div class="p-6 text-center text-xs text-zinc-400">Нет диалогов</div>';
+        return;
+      }
+
+      container.innerHTML = list.map(c => `
+        <div 
+          onclick="selectConversation('${c.id}')"
+          class="p-3.5 hover:bg-zinc-50 cursor-pointer transition-colors ${currentConversationId === c.id ? 'bg-zinc-100 border-l-2 border-zinc-900' : ''}"
+        >
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-semibold text-xs text-zinc-900">${escapeHtml(c.user_name)}</span>
+            <span class="text-[10px] text-zinc-400">${new Date(c.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
+          <p class="text-xs text-zinc-500 line-clamp-2 leading-relaxed">${escapeHtml(c.last_message)}</p>
+        </div>
+      `).join('');
+    }
+
+    // Load Messages for single conversation
+    async function selectConversation(id) {
+      currentConversationId = id;
+      const conv = allConversations.find(c => c.id === id);
+      if (conv) {
+        document.getElementById('chat-user-name').innerText = conv.user_name;
+        document.getElementById('chat-user-email').innerText = conv.user_email !== 'email не указан' ? `• ${conv.user_email}` : '';
+        document.getElementById('chat-user-avatar').innerText = (conv.user_name[0] || 'H').toUpperCase();
+      }
+
+      renderConversations(allConversations);
+
+      const msgContainer = document.getElementById('messages-container');
+      msgContainer.innerHTML = '<div class="p-6 text-center text-xs text-zinc-400">Загрузка сообщений...</div>';
+
+      if (!supabaseClient) {
+        renderDemoMessages();
+        return;
+      }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', id)
+          .order('created_at', { ascending: true });
+
+        if (error || !data || data.length === 0) {
+          renderDemoMessages();
+        } else {
+          renderMessages(data);
+        }
+      } catch {
+        renderDemoMessages();
+      }
+    }
+
+    function renderMessages(msgs) {
+      const container = document.getElementById('messages-container');
+      container.innerHTML = msgs.map(m => {
+        const isUser = m.sender_type === 'user' || m.sender === 'user';
+        return `
+          <div class="flex ${isUser ? 'justify-start' : 'justify-end'}">
+            <div class="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs ${
+              isUser 
+                ? 'bg-white border border-zinc-200 text-zinc-900 shadow-2xs rounded-bl-xs' 
+                : 'bg-zinc-900 text-white rounded-br-xs'
+            }">
+              <div class="text-[10px] font-medium opacity-60 mb-0.5">${isUser ? 'Клиент' : 'Консультант HealthyLine'}</div>
+              <div class="leading-relaxed">${escapeHtml(m.content || m.text || '')}</div>
+              <div class="text-[9px] opacity-40 text-right mt-1">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function renderDemoMessages() {
+      renderMessages([
+        { sender_type: 'user', content: 'Здравствуйте! Подскажите, коврик TAO Platinum поддерживает регулировку инфракрасного прогрева?', created_at: new Date().toISOString() },
+        { sender_type: 'bot', content: 'Добрый день! Да, модель TAO Platinum оснащена пультом с точной настройкой температуры от 30°C до 70°C и таймером.', created_at: new Date().toISOString() }
+      ]);
+    }
+
+    function handleSearch(query) {
+      const q = query.toLowerCase();
+      const filtered = allConversations.filter(c => 
+        c.user_name.toLowerCase().includes(q) || 
+        c.user_email.toLowerCase().includes(q) || 
+        c.last_message.toLowerCase().includes(q)
+      );
+      renderConversations(filtered);
+    }
+
+    function refreshConversations() {
+      loadConversations();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function getDemoConversations() {
+      return [
+        { id: '1', user_name: 'Jane Doe', user_email: 'jane@example.com', last_message: 'Здравствуйте! Подскажите по коврику TAO Platinum...', updated_at: new Date().toISOString() },
+        { id: '2', user_name: 'Michael Chang', user_email: 'michael@gmail.com', last_message: 'Спасибо большое за консультацию, заказ оформил!', updated_at: new Date(Date.now() - 3600000).toISOString() }
+      ];
+    }
+  </script>
+</body>
+</html>
